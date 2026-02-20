@@ -4,6 +4,7 @@ import tn.iatechnology.backend.dto.PublicationRequest;
 import tn.iatechnology.backend.dto.PublicationResponse;
 import tn.iatechnology.backend.entity.Publication;
 import tn.iatechnology.backend.repository.PublicationRepository;
+import tn.iatechnology.backend.service.AuditLogService;
 import tn.iatechnology.backend.service.PublicationService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.core.io.Resource;
@@ -27,6 +28,9 @@ public class PublicationController {
     @Autowired
     private PublicationRepository publicationRepository;
 
+    @Autowired
+    private AuditLogService auditLogService;
+
     @GetMapping
     @PreAuthorize("hasRole('ADMIN') or hasRole('MODERATEUR') or hasRole('UTILISATEUR')")
     public List<PublicationResponse> getAllPublications() {
@@ -39,7 +43,6 @@ public class PublicationController {
         return ResponseEntity.ok(publicationService.getPublicationById(id));
     }
 
-    // ✅ Endpoint de recherche manquant - appelé par le frontend
     @GetMapping("/search")
     @PreAuthorize("hasRole('ADMIN') or hasRole('MODERATEUR') or hasRole('UTILISATEUR')")
     public List<PublicationResponse> searchPublications(
@@ -69,7 +72,10 @@ public class PublicationController {
     public ResponseEntity<PublicationResponse> createPublication(
             @RequestPart("publication") PublicationRequest request,
             @RequestPart(value = "fichier", required = false) MultipartFile fichier) throws IOException {
-        return ResponseEntity.ok(publicationService.createPublication(request, fichier));
+        PublicationResponse created = publicationService.createPublication(request, fichier);
+        auditLogService.log("CREATE", "PUBLICATION", created.getId(),
+                "Création de la publication : " + created.getTitre());
+        return ResponseEntity.ok(created);
     }
 
     @PutMapping(value = "/{id}", consumes = {"multipart/form-data"})
@@ -78,12 +84,21 @@ public class PublicationController {
             @PathVariable Long id,
             @RequestPart("publication") PublicationRequest request,
             @RequestPart(value = "fichier", required = false) MultipartFile fichier) throws IOException {
-        return ResponseEntity.ok(publicationService.updatePublication(id, request, fichier));
+        PublicationResponse updated = publicationService.updatePublication(id, request, fichier);
+        auditLogService.log("UPDATE", "PUBLICATION", id,
+                "Modification de la publication : " + updated.getTitre());
+        return ResponseEntity.ok(updated);
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deletePublication(@PathVariable Long id) throws IOException {
+        try {
+            PublicationResponse p = publicationService.getPublicationById(id);
+            auditLogService.log("DELETE", "PUBLICATION", id,
+                    "Suppression de la publication : " + p.getTitre());
+        } catch (Exception ignored) {}
+
         publicationService.deletePublication(id);
         return ResponseEntity.ok().build();
     }
@@ -91,6 +106,7 @@ public class PublicationController {
     @GetMapping("/download/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('MODERATEUR') or hasRole('UTILISATEUR')")
     public ResponseEntity<Resource> downloadFile(@PathVariable Long id) throws IOException {
+        auditLogService.log("DOWNLOAD", "PUBLICATION", id, "Téléchargement du fichier PDF");
         return publicationService.downloadFile(id);
     }
 }

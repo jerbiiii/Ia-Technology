@@ -7,6 +7,7 @@ import tn.iatechnology.backend.dto.UserResponse;
 import tn.iatechnology.backend.entity.Role;
 import tn.iatechnology.backend.entity.User;
 import tn.iatechnology.backend.repository.UserRepository;
+import tn.iatechnology.backend.service.AuditLogService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -27,6 +28,9 @@ public class UserController {
 
     @Autowired
     private PasswordEncoder encoder;
+
+    @Autowired
+    private AuditLogService auditLogService;
 
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
@@ -59,7 +63,10 @@ public class UserController {
         user.setRole(request.getRole() != null ? request.getRole() : Role.UTILISATEUR);
         user.setDateInscription(LocalDateTime.now());
 
-        userRepository.save(user);
+        User saved = userRepository.save(user);
+        auditLogService.log("CREATE", "USER", saved.getId(),
+                "Création de l'utilisateur : " + saved.getEmail() + " (rôle: " + saved.getRole() + ")");
+
         return ResponseEntity.ok(new MessageResponse("Utilisateur créé avec succès"));
     }
 
@@ -68,14 +75,23 @@ public class UserController {
     public ResponseEntity<?> updateUserRole(@PathVariable Long id, @RequestBody RoleUpdateRequest request) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+        Role ancienRole = user.getRole();
         user.setRole(request.getRole());
         userRepository.save(user);
+
+        auditLogService.log("UPDATE", "USER", id,
+                "Changement de rôle de " + user.getEmail() + " : " + ancienRole + " → " + request.getRole());
+
         return ResponseEntity.ok(new MessageResponse("Rôle mis à jour avec succès"));
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteUser(@PathVariable Long id) {
+        userRepository.findById(id).ifPresent(user ->
+                auditLogService.log("DELETE", "USER", id,
+                        "Suppression de l'utilisateur : " + user.getEmail())
+        );
         userRepository.deleteById(id);
         return ResponseEntity.ok(new MessageResponse("Utilisateur supprimé"));
     }

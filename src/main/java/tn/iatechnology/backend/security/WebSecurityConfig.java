@@ -1,6 +1,7 @@
 package tn.iatechnology.backend.security;
 
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.HeadersConfigurer;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -31,6 +32,7 @@ import static org.springframework.security.config.Customizer.withDefaults;
 @EnableWebSecurity
 @EnableMethodSecurity
 public class WebSecurityConfig {
+
     @Autowired
     UserDetailsServiceImpl userDetailsService;
 
@@ -63,7 +65,7 @@ public class WebSecurityConfig {
         source.registerCorsConfiguration("/**", configuration);
         return source;
     }
-    // Ignorer complètement la sécurité pour les chemins publics et d'authentification
+
     @Bean
     public WebSecurityCustomizer webSecurityCustomizer() {
         return (web) -> web.ignoring().requestMatchers("/api/public/**", "/api/auth/**");
@@ -73,21 +75,52 @@ public class WebSecurityConfig {
     public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
         http
                 .cors(withDefaults())
-                .csrf(AbstractHttpConfigurer::disable) // Désactive CSRF
+                .csrf(AbstractHttpConfigurer::disable)
                 .exceptionHandling(ex -> ex.authenticationEntryPoint(unauthorizedHandler))
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated());
+                .authorizeHttpRequests(auth -> auth.anyRequest().authenticated())
+
+                // ─── Headers de sécurité contre XSS et autres attaques ───
+                .headers(headers -> headers
+                                // Protection XSS pour les anciens navigateurs
+                                .xssProtection(xss -> xss
+                                        .headerValue(
+                                                org.springframework.security.web.header.writers.XXssProtectionHeaderWriter.HeaderValue.ENABLED_MODE_BLOCK
+                                        )
+                                )
+                                // Empêcher le MIME sniffing
+                                .contentTypeOptions(withDefaults())
+                                // Politique de sécurité du contenu (CSP)
+                                .contentSecurityPolicy(csp -> csp
+                                        .policyDirectives(
+                                                "default-src 'self'; " +
+                                                        "script-src 'self'; " +
+                                                        "style-src 'self' 'unsafe-inline'; " +
+                                                        "img-src 'self' data: https:; " +
+                                                        "font-src 'self'; " +
+                                                        "connect-src 'self' http://localhost:*; " +
+                                                        "frame-ancestors 'none';"
+                                        )
+                                )
+                                // Empêcher l'affichage dans une iframe (clickjacking)
+                                .frameOptions(HeadersConfigurer.FrameOptionsConfig::deny)
+                        // Forcer HTTPS (en production)
+                        // .httpStrictTransportSecurity(hsts -> hsts
+                        //     .includeSubDomains(true)
+                        //     .maxAgeInSeconds(31536000)
+                        // )
+                );
 
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
     }
+
     @Bean
     public FilterRegistrationBean<AuthTokenFilter> authTokenFilterRegistration() {
         FilterRegistrationBean<AuthTokenFilter> registration =
                 new FilterRegistrationBean<>(authenticationJwtTokenFilter());
-        registration.setEnabled(false); // disable auto-registration as servlet filter
+        registration.setEnabled(false);
         return registration;
     }
-
 }
