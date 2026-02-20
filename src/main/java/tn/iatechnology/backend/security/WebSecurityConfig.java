@@ -21,6 +21,7 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
+import org.springframework.boot.web.servlet.FilterRegistrationBean;
 
 import java.util.Arrays;
 
@@ -80,6 +81,13 @@ public class WebSecurityConfig {
         http.addFilterBefore(authenticationJwtTokenFilter(), UsernamePasswordAuthenticationFilter.class);
 
         return http.build();
+    }
+    @Bean
+    public FilterRegistrationBean<AuthTokenFilter> authTokenFilterRegistration() {
+        FilterRegistrationBean<AuthTokenFilter> registration =
+                new FilterRegistrationBean<>(authenticationJwtTokenFilter());
+        registration.setEnabled(false); // disable auto-registration as servlet filter
+        return registration;
     }
 
 }

@@ -43,12 +43,19 @@ public class AuthTokenFilter extends OncePerRequestFilter {
 
                 SecurityContextHolder.getContext().setAuthentication(authentication);
                 logger.debug("Authentication set for user: {} with roles: {}", username, userDetails.getAuthorities());
+
+
+                /// ///
+                logger.info(">>> Filter reached for: {}", request.getRequestURI());
+                logger.info(">>> JWT found: {}", jwt);
+                logger.info(">>> JWT valid: {}", jwt != null && jwtUtils.validateJwtToken(jwt));
             } else {
                 logger.debug("No valid JWT found");
             }
         } catch (Exception e) {
             logger.error("Cannot set user authentication: {}", e.getMessage());
         }
+
 
         filterChain.doFilter(request, response);
     }
