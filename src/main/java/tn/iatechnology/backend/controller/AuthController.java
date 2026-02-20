@@ -1,10 +1,8 @@
 package tn.iatechnology.backend.controller;
 
 
-import tn.iatechnology.backend.dto.JwtResponse;
-import tn.iatechnology.backend.dto.LoginRequest;
-import tn.iatechnology.backend.dto.MessageResponse;
-import tn.iatechnology.backend.dto.SignupRequest;
+import org.springframework.security.access.prepost.PreAuthorize;
+import tn.iatechnology.backend.dto.*;
 import tn.iatechnology.backend.entity.Role;
 import tn.iatechnology.backend.entity.User;
 import tn.iatechnology.backend.repository.UserRepository;
@@ -75,5 +73,39 @@ public class AuthController {
         userRepository.save(user);
 
         return ResponseEntity.ok(new MessageResponse("Utilisateur enregistré avec succès!"));
+    }
+
+    @PutMapping("/profile")
+    @PreAuthorize("hasRole('UTILISATEUR') or hasRole('MODERATEUR') or hasRole('ADMIN')")
+    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, Authentication authentication) {
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+        User user = userRepository.findById(userDetails.getId())
+                .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
+
+        user.setNom(request.getNom());
+        user.setPrenom(request.getPrenom());
+        user.setEmail(request.getEmail());
+        if (request.getPassword() != null && !request.getPassword().isEmpty()) {
+            user.setPassword(encoder.encode(request.getPassword()));
+        }
+        userRepository.save(user);
+        return ResponseEntity.ok(new MessageResponse("Profil mis à jour avec succès"));
+    }
+
+    @PostMapping("/admin/signup")
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> registerUserByAdmin(@Valid @RequestBody SignupRequest signUpRequest) {
+        if (userRepository.existsByEmail(signUpRequest.getEmail())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Erreur: Email déjà utilisé!"));
+        }
+        User user = new User();
+        user.setEmail(signUpRequest.getEmail());
+        user.setNom(signUpRequest.getNom());
+        user.setPrenom(signUpRequest.getPrenom());
+        user.setPassword(encoder.encode(signUpRequest.getPassword()));
+        user.setRole(signUpRequest.getRole() != null ? signUpRequest.getRole() : Role.UTILISATEUR);
+        user.setDateInscription(LocalDateTime.now());
+        userRepository.save(user);
+        return ResponseEntity.ok(new MessageResponse("Utilisateur créé avec succès"));
     }
 }

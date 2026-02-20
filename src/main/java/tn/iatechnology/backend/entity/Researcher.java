@@ -1,8 +1,10 @@
-package tn.iatechnology.backend.entity;
+package com.iatechnology.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+import tn.iatechnology.backend.entity.Domain;
+import tn.iatechnology.backend.entity.User;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -30,16 +32,15 @@ public class Researcher {
     @JoinColumn(name = "domaine_principal_id")
     private Domain domainePrincipal;
 
-    // Relation avec User (si le chercheur a un compte)
+    @ManyToMany
+    @JoinTable(
+            name = "researcher_domain",
+            joinColumns = @JoinColumn(name = "researcher_id"),
+            inverseJoinColumns = @JoinColumn(name = "domain_id")
+    )
+    private Set<Domain> autresDomaines = new HashSet<>();
+
     @OneToOne
     @JoinColumn(name = "user_id")
     private User user;
-
-    @ManyToMany
-    @JoinTable(name = "researcher_domain",
-            joinColumns = @JoinColumn(name = "researcher_id"),
-            inverseJoinColumns = @JoinColumn(name = "domain_id"))
-    private Set<Domain> autresDomaines = new HashSet<>();
-
-    // Pour les publications, on fera une relation bidirectionnelle plus tard
 }
