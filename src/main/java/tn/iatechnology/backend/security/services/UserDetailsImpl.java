@@ -1,6 +1,7 @@
 package tn.iatechnology.backend.security.services;
 
 
+import lombok.Getter;
 import tn.iatechnology.backend.entity.User;
 import com.fasterxml.jackson.annotation.JsonIgnore;
 import org.springframework.security.core.GrantedAuthority;
@@ -14,9 +15,13 @@ import java.util.Objects;
 public class UserDetailsImpl implements UserDetails {
     private static final long serialVersionUID = 1L;
 
+    @Getter
     private Long id;
+    @Getter
     private String email;
+    @Getter
     private String nom;
+    @Getter
     private String prenom;
     @JsonIgnore
     private String password;
@@ -47,22 +52,6 @@ public class UserDetailsImpl implements UserDetails {
     @Override
     public Collection<? extends GrantedAuthority> getAuthorities() {
         return authorities;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public String getNom() {
-        return nom;
-    }
-
-    public String getPrenom() {
-        return prenom;
     }
 
     @Override

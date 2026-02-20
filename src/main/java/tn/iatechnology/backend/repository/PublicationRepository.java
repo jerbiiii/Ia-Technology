@@ -10,7 +10,6 @@ import java.util.List;
 
 @Repository
 public interface PublicationRepository extends JpaRepository<Publication, Long> {
-    List<Publication> findByTitreContainingIgnoreCase(String titre);
     List<Publication> findByChercheursId(Long chercheurId);
     List<Publication> findByDomainesId(Long domaineId);
 
