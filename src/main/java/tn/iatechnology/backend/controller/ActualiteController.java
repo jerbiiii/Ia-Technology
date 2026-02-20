@@ -18,6 +18,13 @@ public class ActualiteController {
     @Autowired
     private ActualiteRepository actualiteRepository;
 
+    // ✅ Endpoint PUBLIC - accessible sans authentification (utilisé sur la Home)
+    @GetMapping("/public/actualites")
+    public List<Actualite> getPublicActualites() {
+        return actualiteRepository.findByActifTrueOrderByDatePublicationDesc();
+    }
+
+    // Liste complète pour modérateur/admin
     @GetMapping("/actualites")
     @PreAuthorize("hasRole('MODERATEUR') or hasRole('ADMIN')")
     public List<Actualite> getAllActualites() {
@@ -28,7 +35,6 @@ public class ActualiteController {
     @PostMapping("/actualites")
     @PreAuthorize("hasRole('MODERATEUR') or hasRole('ADMIN')")
     public ResponseEntity<Actualite> createActualite(@RequestBody Actualite actualite) {
-        // Si la date n'est pas fournie, on met la date courante
         if (actualite.getDatePublication() == null) {
             actualite.setDatePublication(LocalDateTime.now());
         }
@@ -45,6 +51,7 @@ public class ActualiteController {
         existing.setTitre(actualite.getTitre());
         existing.setContenu(actualite.getContenu());
         existing.setDatePublication(actualite.getDatePublication());
+        existing.setActif(actualite.isActif());
         return ResponseEntity.ok(actualiteRepository.save(existing));
     }
 

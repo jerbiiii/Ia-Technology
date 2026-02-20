@@ -143,7 +143,7 @@ public class PublicationService {
                 .body(resource);
     }
 
-    private PublicationResponse convertToResponse(Publication publication) {
+    public PublicationResponse convertToResponse(Publication publication) {
         PublicationResponse response = new PublicationResponse();
         response.setId(publication.getId());
         response.setTitre(publication.getTitre());
