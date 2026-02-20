@@ -1,15 +1,21 @@
 package tn.iatechnology.backend.controller;
 
+import tn.iatechnology.backend.dto.AdminCreateUserRequest;
+import tn.iatechnology.backend.dto.MessageResponse;
+import tn.iatechnology.backend.dto.RoleUpdateRequest;
+import tn.iatechnology.backend.dto.UserResponse;
 import tn.iatechnology.backend.entity.Role;
 import tn.iatechnology.backend.entity.User;
-import tn.iatechnology.backend.dto.MessageResponse;
 import tn.iatechnology.backend.repository.UserRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.stream.Collectors;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
@@ -19,18 +25,42 @@ public class UserController {
     @Autowired
     private UserRepository userRepository;
 
+    @Autowired
+    private PasswordEncoder encoder;
+
     @GetMapping
     @PreAuthorize("hasRole('ADMIN')")
-    public List<User> getAllUsers() {
-        return userRepository.findAll();
+    public List<UserResponse> getAllUsers() {
+        return userRepository.findAll().stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
     }
 
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<User> getUserById(@PathVariable Long id) {
+    public ResponseEntity<UserResponse> getUserById(@PathVariable Long id) {
         User user = userRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
-        return ResponseEntity.ok(user);
+        return ResponseEntity.ok(convertToResponse(user));
+    }
+
+    @PostMapping
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<?> createUserByAdmin(@RequestBody AdminCreateUserRequest request) {
+        if (userRepository.existsByEmail(request.getEmail())) {
+            return ResponseEntity.badRequest().body(new MessageResponse("Erreur: Email déjà utilisé!"));
+        }
+
+        User user = new User();
+        user.setEmail(request.getEmail());
+        user.setNom(request.getNom());
+        user.setPrenom(request.getPrenom());
+        user.setPassword(encoder.encode(request.getPassword()));
+        user.setRole(request.getRole() != null ? request.getRole() : Role.UTILISATEUR);
+        user.setDateInscription(LocalDateTime.now());
+
+        userRepository.save(user);
+        return ResponseEntity.ok(new MessageResponse("Utilisateur créé avec succès"));
     }
 
     @PutMapping("/{id}/role")
@@ -49,10 +79,15 @@ public class UserController {
         userRepository.deleteById(id);
         return ResponseEntity.ok(new MessageResponse("Utilisateur supprimé"));
     }
-}
 
-class RoleUpdateRequest {
-    private Role role;
-    public Role getRole() { return role; }
-    public void setRole(Role role) { this.role = role; }
+    private UserResponse convertToResponse(User user) {
+        UserResponse response = new UserResponse();
+        response.setId(user.getId());
+        response.setEmail(user.getEmail());
+        response.setNom(user.getNom());
+        response.setPrenom(user.getPrenom());
+        response.setRole(user.getRole());
+        response.setDateInscription(user.getDateInscription());
+        return response;
+    }
 }

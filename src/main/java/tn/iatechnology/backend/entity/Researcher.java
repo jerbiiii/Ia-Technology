@@ -1,10 +1,9 @@
-package com.iatechnology.backend.entity;
+package tn.iatechnology.backend.entity;
 
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-import tn.iatechnology.backend.entity.Domain;
-import tn.iatechnology.backend.entity.User;
+
 
 import java.util.HashSet;
 import java.util.Set;

@@ -1,6 +1,5 @@
 package tn.iatechnology.backend.entity;
 
-
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -28,17 +27,21 @@ public class Publication {
 
     private String doi;
 
-    private String cheminFichier; // chemin du fichier PDF sur le serveur
+    private String cheminFichier; // chemin du fichier PDF stocké
 
     @ManyToMany
-    @JoinTable(name = "publication_researcher",
+    @JoinTable(
+            name = "publication_researcher",
             joinColumns = @JoinColumn(name = "publication_id"),
-            inverseJoinColumns = @JoinColumn(name = "researcher_id"))
+            inverseJoinColumns = @JoinColumn(name = "researcher_id")
+    )
     private Set<Researcher> chercheurs = new HashSet<>();
 
     @ManyToMany
-    @JoinTable(name = "publication_domain",
+    @JoinTable(
+            name = "publication_domain",
             joinColumns = @JoinColumn(name = "publication_id"),
-            inverseJoinColumns = @JoinColumn(name = "domain_id"))
+            inverseJoinColumns = @JoinColumn(name = "domain_id")
+    )
     private Set<Domain> domaines = new HashSet<>();
 }

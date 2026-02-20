@@ -2,7 +2,7 @@ package tn.iatechnology.backend.service;
 
 import tn.iatechnology.backend.dto.ResearcherDTO;
 import tn.iatechnology.backend.entity.Domain;
-
+import tn.iatechnology.backend.entity.Researcher;
 import tn.iatechnology.backend.entity.User;
 import tn.iatechnology.backend.repository.DomainRepository;
 import tn.iatechnology.backend.repository.ResearcherRepository;
@@ -134,7 +134,7 @@ public class ResearcherService {
                 .collect(Collectors.toList());
     }
 
-    private ResearcherDTO convertToDTO(Researcher researcher) {
+    public ResearcherDTO convertToDTO(Researcher researcher) {
         ResearcherDTO dto = new ResearcherDTO();
         dto.setId(researcher.getId());
         dto.setNom(researcher.getNom());
@@ -158,5 +158,10 @@ public class ResearcherService {
         }
 
         return dto;
+    }
+    public ResearcherDTO getResearcherByUserId(Long userId) {
+        Researcher researcher = researcherRepository.findByUserId(userId)
+                .orElseThrow(() -> new RuntimeException("Chercheur non trouvé pour cet utilisateur"));
+        return convertToDTO(researcher);
     }
 }

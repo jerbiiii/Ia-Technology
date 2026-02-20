@@ -1,6 +1,7 @@
 package tn.iatechnology.backend.controller;
 
-
+import tn.iatechnology.backend.dto.HighlightRequest;
+import tn.iatechnology.backend.dto.MessageResponse;
 import tn.iatechnology.backend.entity.Highlight;
 import tn.iatechnology.backend.repository.HighlightRepository;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -25,36 +26,49 @@ public class HighlightController {
         return highlightRepository.findByActifTrueOrderByDateCreationDesc();
     }
 
-    // Gestion par modérateur/admin
-    @GetMapping("/highlights")
+    // Accès modérateur/admin
+    @GetMapping("/moderator/highlights")
     @PreAuthorize("hasRole('MODERATEUR') or hasRole('ADMIN')")
     public List<Highlight> getAllHighlights() {
         return highlightRepository.findAll();
     }
 
-    @PostMapping("/highlights")
+    @GetMapping("/moderator/highlights/{id}")
     @PreAuthorize("hasRole('MODERATEUR') or hasRole('ADMIN')")
-    public Highlight createHighlight(@RequestBody Highlight highlight) {
+    public ResponseEntity<Highlight> getHighlightById(@PathVariable Long id) {
+        Highlight highlight = highlightRepository.findById(id)
+                .orElseThrow(() -> new RuntimeException("Highlight non trouvé"));
+        return ResponseEntity.ok(highlight);
+    }
+
+    @PostMapping("/moderator/highlights")
+    @PreAuthorize("hasRole('MODERATEUR') or hasRole('ADMIN')")
+    public Highlight createHighlight(@RequestBody HighlightRequest request) {
+        Highlight highlight = new Highlight();
+        highlight.setTitre(request.getTitre());
+        highlight.setDescription(request.getDescription());
+        highlight.setImageUrl(request.getImageUrl());
         highlight.setDateCreation(LocalDateTime.now());
+        highlight.setActif(request.isActif());
         return highlightRepository.save(highlight);
     }
 
-    @PutMapping("/highlights/{id}")
+    @PutMapping("/moderator/highlights/{id}")
     @PreAuthorize("hasRole('MODERATEUR') or hasRole('ADMIN')")
-    public ResponseEntity<Highlight> updateHighlight(@PathVariable Long id, @RequestBody Highlight details) {
+    public ResponseEntity<Highlight> updateHighlight(@PathVariable Long id, @RequestBody HighlightRequest request) {
         Highlight highlight = highlightRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Highlight non trouvé"));
-        highlight.setTitre(details.getTitre());
-        highlight.setDescription(details.getDescription());
-        highlight.setImageUrl(details.getImageUrl());
-        highlight.setActif(details.isActif());
+        highlight.setTitre(request.getTitre());
+        highlight.setDescription(request.getDescription());
+        highlight.setImageUrl(request.getImageUrl());
+        highlight.setActif(request.isActif());
         return ResponseEntity.ok(highlightRepository.save(highlight));
     }
 
-    @DeleteMapping("/highlights/{id}")
+    @DeleteMapping("/moderator/highlights/{id}")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> deleteHighlight(@PathVariable Long id) {
         highlightRepository.deleteById(id);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.ok(new MessageResponse("Highlight supprimé"));
     }
 }

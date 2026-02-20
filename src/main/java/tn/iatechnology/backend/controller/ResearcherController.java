@@ -1,7 +1,7 @@
 package tn.iatechnology.backend.controller;
 
-
 import tn.iatechnology.backend.dto.ResearcherDTO;
+import tn.iatechnology.backend.entity.Researcher;
 import tn.iatechnology.backend.service.ResearcherService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -51,11 +51,22 @@ public class ResearcherController {
         researcherService.deleteResearcher(id);
         return ResponseEntity.ok().build();
     }
+
     @GetMapping("/search")
     @PreAuthorize("hasRole('ADMIN') or hasRole('MODERATEUR') or hasRole('UTILISATEUR')")
-    public List<ResearcherDTO> searchResearchers(@RequestParam(required = false) String nom,
-                                                 @RequestParam(required = false) String prenom,
-                                                 @RequestParam(required = false) String domaine) {
+    public List<ResearcherDTO> searchResearchers(
+            @RequestParam(required = false) String nom,
+            @RequestParam(required = false) String prenom,
+            @RequestParam(required = false) String domaine) {
         return researcherService.search(nom, prenom, domaine);
     }
+
+    @GetMapping("/by-user/{userId}")
+    @PreAuthorize("hasRole('UTILISATEUR') or hasRole('MODERATEUR') or hasRole('ADMIN')")
+    public ResponseEntity<ResearcherDTO> getResearcherByUserId(@PathVariable Long userId) {
+        ResearcherDTO researcher = researcherService.getResearcherByUserId(userId);
+        return ResponseEntity.ok(researcher);
+    }
+
+
 }

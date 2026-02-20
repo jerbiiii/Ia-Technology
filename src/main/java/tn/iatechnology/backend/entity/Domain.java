@@ -1,9 +1,12 @@
 package tn.iatechnology.backend.entity;
 
-
+import com.fasterxml.jackson.annotation.JsonIgnore;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
+
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "domains")
@@ -18,4 +21,13 @@ public class Domain {
     private String nom;
 
     private String description;
+
+    // Auto-référence pour la hiérarchie
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "parent_id")
+    @JsonIgnore
+    private Domain parent;
+
+    @OneToMany(mappedBy = "parent", cascade = CascadeType.ALL, orphanRemoval = true)
+    private List<Domain> enfants = new ArrayList<>();
 }

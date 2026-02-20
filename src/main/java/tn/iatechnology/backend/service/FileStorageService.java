@@ -37,7 +37,7 @@ public class FileStorageService {
         if (resource.exists()) {
             return resource;
         } else {
-            throw new RuntimeException("Fichier non trouvé : " + fileName);
+            throw new RuntimeException("Fichier non trouvé " + fileName);
         }
     }
 

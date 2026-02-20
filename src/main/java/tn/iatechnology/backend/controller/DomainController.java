@@ -23,6 +23,12 @@ public class DomainController {
         return domainService.getAllDomains();
     }
 
+    @GetMapping("/roots")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MODERATEUR') or hasRole('UTILISATEUR')")
+    public List<DomainDTO> getRootDomains() {
+        return domainService.getRootDomains();
+    }
+
     @GetMapping("/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('MODERATEUR') or hasRole('UTILISATEUR')")
     public ResponseEntity<DomainDTO> getDomainById(@PathVariable Long id) {
@@ -49,5 +55,11 @@ public class DomainController {
     public ResponseEntity<?> deleteDomain(@PathVariable Long id) {
         domainService.deleteDomain(id);
         return ResponseEntity.ok().build();
+    }
+
+    @GetMapping("/search")
+    @PreAuthorize("hasRole('ADMIN') or hasRole('MODERATEUR') or hasRole('UTILISATEUR')")
+    public List<DomainDTO> searchDomains(@RequestParam String keyword) {
+        return domainService.searchDomains(keyword);
     }
 }

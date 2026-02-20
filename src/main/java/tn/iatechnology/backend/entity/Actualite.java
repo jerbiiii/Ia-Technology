@@ -1,10 +1,8 @@
 package tn.iatechnology.backend.entity;
 
-
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
-
 import java.time.LocalDateTime;
 
 @Entity
@@ -27,4 +25,6 @@ public class Actualite {
     @ManyToOne
     @JoinColumn(name = "auteur_id")
     private User auteur; // le modérateur qui a créé l'actualité
+
+    private boolean actif; // pour afficher ou non sur la page d'accueil
 }

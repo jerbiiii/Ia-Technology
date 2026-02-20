@@ -1,6 +1,5 @@
 package tn.iatechnology.backend.service;
 
-
 import tn.iatechnology.backend.dto.PublicationRequest;
 import tn.iatechnology.backend.dto.PublicationResponse;
 import tn.iatechnology.backend.entity.Domain;
@@ -40,12 +39,14 @@ public class PublicationService {
     private FileStorageService fileStorageService;
 
     public List<PublicationResponse> getAllPublications() {
-        return publicationRepository.findAll().stream().map(this::convertToResponse).collect(Collectors.toList());
+        return publicationRepository.findAll().stream()
+                .map(this::convertToResponse)
+                .collect(Collectors.toList());
     }
 
     public PublicationResponse getPublicationById(Long id) {
         Publication publication = publicationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Publication non trouvée avec l'id : " + id));
+                .orElseThrow(() -> new RuntimeException("Publication non trouvée avec l'id: " + id));
         return convertToResponse(publication);
     }
 
@@ -57,22 +58,22 @@ public class PublicationService {
         publication.setDatePublication(request.getDatePublication());
         publication.setDoi(request.getDoi());
 
-        // Gestion des chercheurs
+        // Gestion du fichier
+        if (fichier != null && !fichier.isEmpty()) {
+            String fileName = fileStorageService.storeFile(fichier);
+            publication.setCheminFichier(fileName);
+        }
+
+        // Association des chercheurs
         if (request.getChercheursIds() != null && !request.getChercheursIds().isEmpty()) {
             Set<Researcher> chercheurs = new HashSet<>(researcherRepository.findAllById(request.getChercheursIds()));
             publication.setChercheurs(chercheurs);
         }
 
-        // Gestion des domaines
+        // Association des domaines
         if (request.getDomainesIds() != null && !request.getDomainesIds().isEmpty()) {
             Set<Domain> domaines = new HashSet<>(domainRepository.findAllById(request.getDomainesIds()));
             publication.setDomaines(domaines);
-        }
-
-        // Gestion du fichier
-        if (fichier != null && !fichier.isEmpty()) {
-            String fileName = fileStorageService.storeFile(fichier);
-            publication.setCheminFichier(fileName);
         }
 
         Publication saved = publicationRepository.save(publication);
@@ -82,12 +83,21 @@ public class PublicationService {
     @Transactional
     public PublicationResponse updatePublication(Long id, PublicationRequest request, MultipartFile fichier) throws IOException {
         Publication publication = publicationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Publication non trouvée avec l'id : " + id));
+                .orElseThrow(() -> new RuntimeException("Publication non trouvée avec l'id: " + id));
 
         publication.setTitre(request.getTitre());
         publication.setResume(request.getResume());
         publication.setDatePublication(request.getDatePublication());
         publication.setDoi(request.getDoi());
+
+        // Gestion du fichier : si nouveau fichier, supprimer l'ancien et enregistrer le nouveau
+        if (fichier != null && !fichier.isEmpty()) {
+            if (publication.getCheminFichier() != null) {
+                fileStorageService.deleteFile(publication.getCheminFichier());
+            }
+            String fileName = fileStorageService.storeFile(fichier);
+            publication.setCheminFichier(fileName);
+        }
 
         // Mise à jour des chercheurs
         if (request.getChercheursIds() != null) {
@@ -105,16 +115,6 @@ public class PublicationService {
             publication.getDomaines().clear();
         }
 
-        // Gestion du fichier : si un nouveau fichier est fourni, on supprime l'ancien et on enregistre le nouveau
-        if (fichier != null && !fichier.isEmpty()) {
-            // Supprimer l'ancien fichier si existant
-            if (publication.getCheminFichier() != null) {
-                fileStorageService.deleteFile(publication.getCheminFichier());
-            }
-            String fileName = fileStorageService.storeFile(fichier);
-            publication.setCheminFichier(fileName);
-        }
-
         Publication updated = publicationRepository.save(publication);
         return convertToResponse(updated);
     }
@@ -122,7 +122,7 @@ public class PublicationService {
     @Transactional
     public void deletePublication(Long id) throws IOException {
         Publication publication = publicationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Publication non trouvée avec l'id : " + id));
+                .orElseThrow(() -> new RuntimeException("Publication non trouvée avec l'id: " + id));
         // Supprimer le fichier associé
         if (publication.getCheminFichier() != null) {
             fileStorageService.deleteFile(publication.getCheminFichier());
@@ -132,15 +132,14 @@ public class PublicationService {
 
     public ResponseEntity<Resource> downloadFile(Long id) throws IOException {
         Publication publication = publicationRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Publication non trouvée avec l'id : " + id));
-        String fileName = publication.getCheminFichier();
-        if (fileName == null) {
+                .orElseThrow(() -> new RuntimeException("Publication non trouvée"));
+        if (publication.getCheminFichier() == null) {
             throw new RuntimeException("Aucun fichier associé à cette publication");
         }
-        Resource resource = fileStorageService.loadFileAsResource(fileName);
+        Resource resource = fileStorageService.loadFileAsResource(publication.getCheminFichier());
         return ResponseEntity.ok()
                 .contentType(MediaType.APPLICATION_PDF)
-                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + resource.getFilename() + "\"")
+                .header(HttpHeaders.CONTENT_DISPOSITION, "attachment; filename=\"" + publication.getCheminFichier() + "\"")
                 .body(resource);
     }
 
@@ -152,28 +151,25 @@ public class PublicationService {
         response.setDatePublication(publication.getDatePublication());
         response.setDoi(publication.getDoi());
         response.setCheminFichier(publication.getCheminFichier());
-        response.setChercheursIds(publication.getChercheurs().stream().map(Researcher::getId).collect(Collectors.toSet()));
-        response.setDomainesIds(publication.getDomaines().stream().map(Domain::getId).collect(Collectors.toSet()));
+
+        if (publication.getChercheurs() != null) {
+            response.setChercheursIds(publication.getChercheurs().stream()
+                    .map(Researcher::getId)
+                    .collect(Collectors.toSet()));
+            response.setChercheursNoms(publication.getChercheurs().stream()
+                    .map(r -> r.getPrenom() + " " + r.getNom())
+                    .collect(Collectors.toSet()));
+        }
+
+        if (publication.getDomaines() != null) {
+            response.setDomainesIds(publication.getDomaines().stream()
+                    .map(Domain::getId)
+                    .collect(Collectors.toSet()));
+            response.setDomainesNoms(publication.getDomaines().stream()
+                    .map(Domain::getNom)
+                    .collect(Collectors.toSet()));
+        }
+
         return response;
-    }
-    public List<PublicationResponse> search(String keyword, Long domaineId, Long chercheurId) {
-        // Logique de recherche combinée
-        // Si plusieurs critères, on peut faire des intersections
-        // Pour simplifier, on va implémenter des recherches séparées et combiner
-        Set<Publication> result = new HashSet<>();
-        if (keyword != null && !keyword.isEmpty()) {
-            result.addAll(publicationRepository.findByKeywordInTitreOrResume(keyword));
-        }
-        if (domaineId != null) {
-            result.addAll(publicationRepository.findByDomainesId(domaineId));
-        }
-        if (chercheurId != null) {
-            result.addAll(publicationRepository.findByChercheursId(chercheurId));
-        }
-        // Si aucun critère, retourner tout
-        if (result.isEmpty() && keyword == null && domaineId == null && chercheurId == null) {
-            return getAllPublications();
-        }
-        return result.stream().map(this::convertToResponse).collect(Collectors.toList());
     }
 }

@@ -1,6 +1,5 @@
 package tn.iatechnology.backend.dto;
 
-
 import lombok.Data;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -15,5 +14,5 @@ public class PublicationRequest {
     private String doi;
     private Set<Long> chercheursIds;
     private Set<Long> domainesIds;
-    private MultipartFile fichier; // le fichier PDF
+    private MultipartFile fichier; // optionnel
 }

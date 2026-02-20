@@ -4,6 +4,7 @@ import tn.iatechnology.backend.dto.PublicationRequest;
 import tn.iatechnology.backend.dto.PublicationResponse;
 import tn.iatechnology.backend.service.PublicationService;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.core.io.Resource;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -59,18 +60,9 @@ public class PublicationController {
         return ResponseEntity.ok().build();
     }
 
-    // Endpoint pour télécharger le fichier
     @GetMapping("/download/{id}")
     @PreAuthorize("hasRole('ADMIN') or hasRole('MODERATEUR') or hasRole('UTILISATEUR')")
-    public ResponseEntity<org.springframework.core.io.Resource> downloadFile(@PathVariable Long id) throws IOException {
+    public ResponseEntity<Resource> downloadFile(@PathVariable Long id) throws IOException {
         return publicationService.downloadFile(id);
-    }
-    @GetMapping("/search")
-    @PreAuthorize("hasRole('ADMIN') or hasRole('MODERATEUR') or hasRole('UTILISATEUR')")
-    public List<PublicationResponse> searchPublications(@RequestParam(required = false) String keyword,
-                                                        @RequestParam(required = false) Long domaineId,
-                                                        @RequestParam(required = false) Long chercheurId) {
-        // Implémentation dans le service
-        return publicationService.search(keyword, domaineId, chercheurId);
     }
 }
