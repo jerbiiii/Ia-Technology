@@ -1,6 +1,5 @@
 package tn.iatechnology.backend.service;
 
-
 import tn.iatechnology.backend.dto.ActualiteDTO;
 import tn.iatechnology.backend.entity.Actualite;
 import tn.iatechnology.backend.entity.User;
@@ -23,47 +22,51 @@ public class ActualiteService {
     @Autowired
     private UserRepository userRepository;
 
-    public List<ActualiteDTO> getAllActualites() {
+    public List<ActualiteDTO> getAll() {
         return actualiteRepository.findAllByOrderByDatePublicationDesc().stream()
-                .map(this::convertToDTO).collect(Collectors.toList());
+                .map(this::convertToDTO)
+                .collect(Collectors.toList());
     }
 
-    public ActualiteDTO getActualiteById(Long id) {
+    public ActualiteDTO getById(Long id) {
         Actualite actualite = actualiteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Actualité non trouvée avec l'id : " + id));
+                .orElseThrow(() -> new RuntimeException("Actualité non trouvée : " + id));
         return convertToDTO(actualite);
     }
 
-    @Transactional
-    public ActualiteDTO createActualite(ActualiteDTO actualiteDTO, Long auteurId) {
-        User auteur = userRepository.findById(auteurId)
-                .orElseThrow(() -> new RuntimeException("Utilisateur auteur non trouvé avec l'id : " + auteurId));
 
+    @Transactional
+    public ActualiteDTO create(ActualiteDTO dto) {
         Actualite actualite = new Actualite();
-        actualite.setTitre(actualiteDTO.getTitre());
-        actualite.setContenu(actualiteDTO.getContenu());
+        actualite.setTitre(dto.getTitre());
+        actualite.setContenu(dto.getContenu());
         actualite.setDatePublication(LocalDateTime.now());
-        actualite.setAuteur(auteur);
 
-        Actualite saved = actualiteRepository.save(actualite);
-        return convertToDTO(saved);
+        // Rattacher l'auteur si l'ID est fourni
+        if (dto.getAuteurId() != null) {
+            User auteur = userRepository.findById(dto.getAuteurId())
+                    .orElseThrow(() -> new RuntimeException("Auteur non trouvé : " + dto.getAuteurId()));
+            actualite.setAuteur(auteur);
+        }
+
+        return convertToDTO(actualiteRepository.save(actualite));
     }
 
     @Transactional
-    public ActualiteDTO updateActualite(Long id, ActualiteDTO actualiteDTO) {
+    public ActualiteDTO update(Long id, ActualiteDTO dto) {
         Actualite actualite = actualiteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Actualité non trouvée avec l'id : " + id));
-        actualite.setTitre(actualiteDTO.getTitre());
-        actualite.setContenu(actualiteDTO.getContenu());
-        // On ne change pas la date ni l'auteur
-        Actualite updated = actualiteRepository.save(actualite);
-        return convertToDTO(updated);
+                .orElseThrow(() -> new RuntimeException("Actualité non trouvée : " + id));
+
+        actualite.setTitre(dto.getTitre());
+        actualite.setContenu(dto.getContenu());
+
+        return convertToDTO(actualiteRepository.save(actualite));
     }
 
     @Transactional
-    public void deleteActualite(Long id) {
+    public void delete(Long id) {
         Actualite actualite = actualiteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Actualité non trouvée avec l'id : " + id));
+                .orElseThrow(() -> new RuntimeException("Actualité non trouvée : " + id));
         actualiteRepository.delete(actualite);
     }
 
@@ -74,7 +77,9 @@ public class ActualiteService {
         dto.setContenu(actualite.getContenu());
         dto.setDatePublication(actualite.getDatePublication());
         dto.setAuteurId(actualite.getAuteur() != null ? actualite.getAuteur().getId() : null);
-        dto.setAuteurNom(actualite.getAuteur() != null ? actualite.getAuteur().getNom() + " " + actualite.getAuteur().getPrenom() : null);
+        dto.setAuteurNom(actualite.getAuteur() != null
+                ? actualite.getAuteur().getNom() + " " + actualite.getAuteur().getPrenom()
+                : null);
         return dto;
     }
 }

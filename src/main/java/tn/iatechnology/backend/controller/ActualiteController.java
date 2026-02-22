@@ -1,65 +1,106 @@
 package tn.iatechnology.backend.controller;
 
-import tn.iatechnology.backend.entity.Actualite;
-import tn.iatechnology.backend.repository.ActualiteRepository;
+import tn.iatechnology.backend.dto.ActualiteDTO;
+import tn.iatechnology.backend.service.ActualiteService;
+import tn.iatechnology.backend.service.AuditLogService;
+import tn.iatechnology.backend.security.services.UserDetailsImpl;
+import jakarta.servlet.http.HttpServletRequest;
+import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.*;
 
-import java.time.LocalDateTime;
 import java.util.List;
 
 @CrossOrigin(origins = "*", maxAge = 3600)
 @RestController
-@RequestMapping("/api")
+@RequestMapping("/api/actualites")
 public class ActualiteController {
 
     @Autowired
-    private ActualiteRepository actualiteRepository;
+    private ActualiteService actualiteService;
 
-    // ✅ Endpoint PUBLIC - accessible sans authentification (utilisé sur la Home)
-    @GetMapping("/public/actualites")
-    public List<Actualite> getPublicActualites() {
-        return actualiteRepository.findByActifTrueOrderByDatePublicationDesc();
+    @Autowired
+    private AuditLogService auditLogService;
+
+    // ── Lecture ───────────────────────────────────────────────────────────
+
+    @GetMapping
+    public ResponseEntity<List<ActualiteDTO>> getAll() {
+        return ResponseEntity.ok(actualiteService.getAll());
     }
 
-    // Liste complète pour modérateur/admin
-    @GetMapping("/actualites")
+    @GetMapping("/{id}")
+    public ResponseEntity<ActualiteDTO> getById(@PathVariable Long id) {
+        return ResponseEntity.ok(actualiteService.getById(id));
+    }
+
+    // ── Écriture : MODERATEUR et ADMIN ────────────────────────────────────
+
+    @PostMapping
     @PreAuthorize("hasRole('MODERATEUR') or hasRole('ADMIN')")
-    public List<Actualite> getAllActualites() {
-        return actualiteRepository.findAllByOrderByDatePublicationDesc();
+    public ResponseEntity<ActualiteDTO> create(
+            @Valid @RequestBody ActualiteDTO dto,
+            Authentication authentication,
+            HttpServletRequest request) {
+
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+
+        dto.setAuteurId(userDetails.getId());
+
+        ActualiteDTO created = actualiteService.create(dto);
+
+        auditLogService.log(
+                "CREATE", "ACTUALITE", created.getId(),
+                "Création actualité : « " + created.getTitre() + " » par " + userDetails.getEmail(),
+                request
+        );
+
+        return ResponseEntity.ok(created);
     }
 
-    // Création (modérateur ou admin)
-    @PostMapping("/actualites")
+    @PutMapping("/{id}")
     @PreAuthorize("hasRole('MODERATEUR') or hasRole('ADMIN')")
-    public ResponseEntity<Actualite> createActualite(@RequestBody Actualite actualite) {
-        if (actualite.getDatePublication() == null) {
-            actualite.setDatePublication(LocalDateTime.now());
-        }
-        Actualite saved = actualiteRepository.save(actualite);
-        return ResponseEntity.ok(saved);
+    public ResponseEntity<ActualiteDTO> update(
+            @PathVariable Long id,
+            @Valid @RequestBody ActualiteDTO dto,
+            Authentication authentication,
+            HttpServletRequest request) {
+
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        ActualiteDTO updated = actualiteService.update(id, dto);
+
+        auditLogService.log(
+                "UPDATE", "ACTUALITE", id,
+                "Modification actualité : « " + updated.getTitre() + " » par " + userDetails.getEmail(),
+                request
+        );
+
+        return ResponseEntity.ok(updated);
     }
 
-    // Mise à jour (modérateur ou admin)
-    @PutMapping("/actualites/{id}")
+
+    @DeleteMapping("/{id}")
     @PreAuthorize("hasRole('MODERATEUR') or hasRole('ADMIN')")
-    public ResponseEntity<Actualite> updateActualite(@PathVariable Long id, @RequestBody Actualite actualite) {
-        Actualite existing = actualiteRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Actualité non trouvée"));
-        existing.setTitre(actualite.getTitre());
-        existing.setContenu(actualite.getContenu());
-        existing.setDatePublication(actualite.getDatePublication());
-        existing.setActif(actualite.isActif());
-        return ResponseEntity.ok(actualiteRepository.save(existing));
-    }
+    public ResponseEntity<Void> delete(
+            @PathVariable Long id,
+            Authentication authentication,
+            HttpServletRequest request) {
 
-    // Suppression (admin uniquement)
-    @DeleteMapping("/actualites/{id}")
-    @PreAuthorize("hasRole('ADMIN')")
-    public ResponseEntity<?> deleteActualite(@PathVariable Long id) {
-        actualiteRepository.deleteById(id);
-        return ResponseEntity.ok().build();
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        actualiteService.delete(id);
+
+        auditLogService.log(
+                "DELETE", "ACTUALITE", id,
+                "Suppression actualité ID " + id + " par " + userDetails.getEmail(),
+                request
+        );
+
+        return ResponseEntity.noContent().build();
     }
 }

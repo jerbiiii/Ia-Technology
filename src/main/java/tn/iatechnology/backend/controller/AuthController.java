@@ -1,6 +1,5 @@
 package tn.iatechnology.backend.controller;
 
-
 import org.springframework.security.access.prepost.PreAuthorize;
 import tn.iatechnology.backend.dto.*;
 import tn.iatechnology.backend.entity.Role;
@@ -8,6 +7,8 @@ import tn.iatechnology.backend.entity.User;
 import tn.iatechnology.backend.repository.UserRepository;
 import tn.iatechnology.backend.security.jwt.JwtUtils;
 import tn.iatechnology.backend.security.services.UserDetailsImpl;
+import tn.iatechnology.backend.service.AuditLogService;
+import jakarta.servlet.http.HttpServletRequest;
 import jakarta.validation.Valid;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -24,6 +25,7 @@ import java.time.LocalDateTime;
 @RestController
 @RequestMapping("/api/auth")
 public class AuthController {
+
     @Autowired
     AuthenticationManager authenticationManager;
 
@@ -36,18 +38,37 @@ public class AuthController {
     @Autowired
     JwtUtils jwtUtils;
 
+    @Autowired
+    AuditLogService auditLogService;
+
     @PostMapping("/signin")
-    public ResponseEntity<?> authenticateUser(@Valid @RequestBody LoginRequest loginRequest) {
+    public ResponseEntity<?> authenticateUser(
+            @Valid @RequestBody LoginRequest loginRequest,
+            HttpServletRequest request) {
+
         Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(loginRequest.getEmail(), loginRequest.getPassword()));
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.getEmail(),
+                        loginRequest.getPassword()));
 
         SecurityContextHolder.getContext().setAuthentication(authentication);
         String jwt = jwtUtils.generateJwtToken(authentication);
 
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
-        String role = userDetails.getAuthorities().iterator().next().getAuthority().replace("ROLE_", "");
+        String role = userDetails.getAuthorities().iterator().next()
+                .getAuthority().replace("ROLE_", "");
 
-        return ResponseEntity.ok(new JwtResponse(jwt,
+        // ✅ CORRECTION : log de la connexion
+        auditLogService.log(
+                "LOGIN",
+                "USER",
+                userDetails.getId(),
+                "Connexion de l'utilisateur : " + userDetails.getEmail(),
+                request
+        );
+
+        return ResponseEntity.ok(new JwtResponse(
+                jwt,
                 userDetails.getId(),
                 userDetails.getEmail(),
                 userDetails.getNom(),
@@ -58,16 +79,16 @@ public class AuthController {
     @PostMapping("/signup")
     public ResponseEntity<?> registerUser(@Valid @RequestBody SignupRequest signUpRequest) {
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Erreur: Email déjà utilisé!"));
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Erreur: Email déjà utilisé!"));
         }
 
-        // Créer un nouvel utilisateur
         User user = new User();
         user.setEmail(signUpRequest.getEmail());
         user.setNom(signUpRequest.getNom());
         user.setPrenom(signUpRequest.getPrenom());
         user.setPassword(encoder.encode(signUpRequest.getPassword()));
-        user.setRole(Role.UTILISATEUR); // Par défaut, le rôle est UTILISATEUR
+        user.setRole(Role.UTILISATEUR);
         user.setDateInscription(LocalDateTime.now());
 
         userRepository.save(user);
@@ -77,7 +98,10 @@ public class AuthController {
 
     @PutMapping("/profile")
     @PreAuthorize("hasRole('UTILISATEUR') or hasRole('MODERATEUR') or hasRole('ADMIN')")
-    public ResponseEntity<?> updateProfile(@RequestBody UpdateProfileRequest request, Authentication authentication) {
+    public ResponseEntity<?> updateProfile(
+            @RequestBody UpdateProfileRequest request,
+            Authentication authentication) {
+
         UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
         User user = userRepository.findById(userDetails.getId())
                 .orElseThrow(() -> new RuntimeException("Utilisateur non trouvé"));
@@ -89,15 +113,46 @@ public class AuthController {
             user.setPassword(encoder.encode(request.getPassword()));
         }
         userRepository.save(user);
+
+        // ✅ CORRECTION : log de la modification de profil
+        auditLogService.log(
+                "UPDATE",
+                "USER",
+                userDetails.getId(),
+                "Mise à jour du profil : " + user.getEmail()
+        );
+
         return ResponseEntity.ok(new MessageResponse("Profil mis à jour avec succès"));
+    }
+
+    // ✅ CORRECTION : endpoint logout pour tracer la déconnexion
+    @PostMapping("/signout")
+    @PreAuthorize("hasRole('UTILISATEUR') or hasRole('MODERATEUR') or hasRole('ADMIN')")
+    public ResponseEntity<?> logoutUser(
+            Authentication authentication,
+            HttpServletRequest request) {
+
+        UserDetailsImpl userDetails = (UserDetailsImpl) authentication.getPrincipal();
+
+        auditLogService.log(
+                "LOGOUT",
+                "USER",
+                userDetails.getId(),
+                "Déconnexion de l'utilisateur : " + userDetails.getEmail(),
+                request
+        );
+
+        return ResponseEntity.ok(new MessageResponse("Déconnexion enregistrée"));
     }
 
     @PostMapping("/admin/signup")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> registerUserByAdmin(@Valid @RequestBody SignupRequest signUpRequest) {
         if (userRepository.existsByEmail(signUpRequest.getEmail())) {
-            return ResponseEntity.badRequest().body(new MessageResponse("Erreur: Email déjà utilisé!"));
+            return ResponseEntity.badRequest()
+                    .body(new MessageResponse("Erreur: Email déjà utilisé!"));
         }
+
         User user = new User();
         user.setEmail(signUpRequest.getEmail());
         user.setNom(signUpRequest.getNom());
@@ -106,6 +161,7 @@ public class AuthController {
         user.setRole(signUpRequest.getRole() != null ? signUpRequest.getRole() : Role.UTILISATEUR);
         user.setDateInscription(LocalDateTime.now());
         userRepository.save(user);
+
         return ResponseEntity.ok(new MessageResponse("Utilisateur créé avec succès"));
     }
 }
